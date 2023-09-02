@@ -1,27 +1,12 @@
 import { ConnectOptions, type Database, MongoClient } from 'mongo'
-
-class ConnectionError extends Error {
-  message = 'Database connection failed.'
-
-  constructor(message?: string) {
-    super()
-    this.name = 'ConnectionError'
-    if (message) {
-      this.message = `${this.message} ${message}`
-    }
-  }
-}
+import { ConnectionError } from './errors.ts'
 
 export class Connection {
-  #client: MongoClient
-  #db: Database | null
-  connected: boolean
+  #client: MongoClient = new MongoClient()
+  #db: Database | null = null
+  connected = false
 
-  constructor(private options: ConnectOptions | string) {
-    this.#client = new MongoClient()
-    this.#db = null
-    this.connected = false
-  }
+  constructor(private options: ConnectOptions | string) {}
 
   async connect() {
     try {
@@ -49,7 +34,3 @@ export class Connection {
     return this.#db
   }
 }
-
-const conn = new Connection('mongodb://localhost:27017')
-conn.connect()
-conn.db.collection('users').find()

@@ -1,5 +1,3 @@
-// deno-lint-ignore-file no-explicit-any
-
 /**
  * @description This file defines valid data types and associated methods
  */
@@ -12,11 +10,11 @@ import { Bson } from 'mongo'
  * @returns An object of class SchemaNumber.
  */
 export class SchemaNumber {
-  public value: any
+  public value: unknown
   public valid: boolean | undefined
   public convertedValue: number | Bson.Double | null | undefined
 
-  constructor(value: any) {
+  constructor(value: unknown) {
     if (value === undefined) {
       throw new Error('A value is required.')
     }
@@ -444,7 +442,7 @@ export class SchemaObject {
   }
 }
 
-export const types = {
+export const dataTypes = {
   number: SchemaNumber,
   decimal128: SchemaDecimal128,
   string: SchemaString,
@@ -454,5 +452,3 @@ export const types = {
   date: SchemaDate,
   object: SchemaObject,
 }
-
-export type SchemaType = keyof typeof types
