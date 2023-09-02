@@ -1,0 +1,14 @@
+{
+  "tasks": {
+    "dev": "deno run --allow-net --unstable --watch server.ts"
+  },
+  "imports": {
+    "std/": "https://deno.land/std@0.200.0/",
+    "mongo": "https://deno.land/x/mongo@v0.32.0/mod.ts"
+  },
+  "fmt": {
+    "semiColons": false,
+    "singleQuote": true
+  },
+  "lock": false
+}
