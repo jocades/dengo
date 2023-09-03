@@ -3,14 +3,17 @@ import { ConnectionError } from './errors.ts'
 
 export class Connection {
   #client: MongoClient = new MongoClient()
+  #options: ConnectOptions | string
   #db: Database | null = null
   connected = false
 
-  constructor(private options: ConnectOptions | string) {}
+  constructor(options: ConnectOptions | string) {
+    this.#options = options
+  }
 
   async connect() {
     try {
-      this.#db = await this.#client.connect(this.options)
+      this.#db = await this.#client.connect(this.#options)
       this.connected = true
       return this.#db
     } catch (err) {

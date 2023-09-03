@@ -9,7 +9,7 @@ import { Bson } from 'mongo'
  * @param value Raw value input from the user.
  * @returns An object of class SchemaNumber.
  */
-export class SchemaNumber {
+class SchemaNumber {
   public value: unknown
   public valid: boolean | undefined
   public convertedValue: number | Bson.Double | null | undefined
@@ -69,7 +69,7 @@ export class SchemaNumber {
  * @param value Raw value input from the user.
  * @returns An object of class SchemaDecimal128.
  */
-export class SchemaDecimal128 {
+class SchemaDecimal128 {
   public value: any
   public valid: boolean | undefined
   public convertedValue: Bson.Decimal128 | null | undefined
@@ -129,7 +129,7 @@ export class SchemaDecimal128 {
  * @param value Raw value input from the user.
  * @returns An object of class SchemaString.
  */
-export class SchemaString {
+class SchemaString {
   public value: any
   public valid: boolean | undefined
   public convertedValue: string | String | null | undefined
@@ -188,7 +188,7 @@ export class SchemaString {
  * @param value Raw value input from the user.
  * @returns An object of class SchemaBoolean.
  */
-export class SchemaBoolean {
+class SchemaBoolean {
   public value: any
   public valid: boolean | undefined
   public convertedValue: boolean | Boolean | null | undefined
@@ -249,7 +249,7 @@ export class SchemaBoolean {
  * @param value Raw value input from the user.
  * @returns An object of class SchemaObjectId.
  */
-export class SchemaObjectId {
+class SchemaObjectId {
   public value: any
   public valid: boolean | undefined
   public convertedValue: Bson.ObjectId | null | undefined
@@ -343,7 +343,7 @@ export class SchemaUUID {
  * @param value Raw value input from the user.
  * @returns An object of class SchemaDate.
  */
-export class SchemaDate {
+class SchemaDate {
   public value: any
   public valid: boolean | undefined
   public convertedValue: Date | null | undefined
@@ -401,7 +401,7 @@ export class SchemaDate {
 
 // SCHEMA OBJ
 
-export class SchemaObject {
+class SchemaObject {
   public value: any
   public valid: boolean | undefined
   public convertedValue: Record<string, unknown> | null | undefined

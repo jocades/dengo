@@ -1,15 +1,18 @@
 import { ConnectOptions } from 'mongo'
 import { Connection } from './connection.ts'
 import { dataTypes } from './data-types.ts'
+import { _model } from './model.ts'
+import { _createSchema } from './schema.ts'
 
 class Dengo {
   connection: Connection | null = null
   types = dataTypes
+  schema = _createSchema
+  model = _model
 
-  async connect(options: ConnectOptions | string) {
+  connect(options: ConnectOptions | string) {
     this.connection = new Connection(options)
-    await this.connection.connect()
-    return this.connection
+    return this.connection.connect()
   }
 
   disconnect() {
@@ -19,6 +22,9 @@ class Dengo {
     this.connection.disconnect()
     this.connection = null
   }
+
+  // TODO: implement
+  transaction() {}
 }
 
 export const dengo: Dengo = new Dengo()

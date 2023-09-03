@@ -1,3 +1,5 @@
 import { dataTypes } from './data-types.ts'
 
-export type DataType = keyof typeof dataTypes
+export type DengoDataType = keyof typeof dataTypes
+
+export type DengoTransformer = typeof dataTypes[DengoDataType]
