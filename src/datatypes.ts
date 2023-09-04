@@ -1,13 +1,5 @@
-import {
-  any,
-  coerce as zCoerce,
-  custom,
-  literal,
-  object,
-  unknown,
-  z,
-} from 'zod'
-import { ObjectId } from 'mongo'
+import { any, custom, literal, object, unknown, z, zCoerce } from 'deps'
+import { ObjectId } from 'deps'
 
 export const str = z.string
 export const num = z.number

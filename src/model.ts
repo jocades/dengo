@@ -8,10 +8,10 @@ import {
   ObjectId,
   UpdateFilter,
   UpdateOptions,
-} from 'mongo'
+} from 'deps'
 import { dengo } from './dengo.ts'
 import { parseObjectId } from './utils.ts'
-import { FindCursor } from 'https://deno.land/x/mongo@v0.32.0/src/collection/commands/find.ts'
+import { FindCursor } from 'deps'
 import { Document, Schema } from './types.ts'
 
 /**

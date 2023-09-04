@@ -1,4 +1,4 @@
-import { ConnectOptions, type Database, MongoClient } from 'mongo'
+import { ConnectOptions, type Database, MongoClient } from 'deps'
 import { ConnectionError } from './errors.ts'
 
 export class Connection {

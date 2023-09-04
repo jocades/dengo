@@ -1,7 +1,7 @@
 // deno-lint-ignore-file ban-types
 
-import { ObjectId } from 'mongo'
-import { z, ZodObject, ZodTypeAny } from 'zod'
+import { ObjectId } from 'deps'
+import { z, ZodObject, ZodTypeAny } from 'deps'
 
 export type SchemaDefinition = Record<string, ZodTypeAny>
 

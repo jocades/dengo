@@ -1,3 +1,4 @@
+// dengo
 export { dengo } from './src/dengo.ts'
 export { model } from './src/model.ts'
 export { schema } from './src/schema.ts'

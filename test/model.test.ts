@@ -1,7 +1,7 @@
-import { AnyZodObject, date, object, z, ZodTypeAny } from 'zod'
+import { AnyZodObject, object, ZodTypeAny } from 'zod/mod.ts'
 import { bool, coerce, enu, list, objectId, str } from '../src/datatypes.ts'
 import { dengo } from '../src/dengo.ts'
-import { Document, SchemaDefinition, SchemaOptions } from '../src/types.ts'
+import { Document, SchemaDefinition } from '../src/types.ts'
 import { schema } from '../src/schema.ts'
 import { model } from '../mod.ts'
 

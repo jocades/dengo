@@ -1,4 +1,4 @@
-import { ConnectOptions } from 'mongo'
+import { ConnectOptions } from 'deps'
 import { Connection } from './connection.ts'
 import { model } from './model.ts'
 import { schema } from './schema.ts'
