@@ -1,104 +1,341 @@
-import { Query } from './query.ts'
-
 import {
   Collection,
-  Document,
+  DeleteOptions,
   Filter,
   FindOptions,
   InsertDocument,
   InsertOptions,
   ObjectId,
+  UpdateFilter,
+  UpdateOptions,
 } from 'mongo'
 import { dengo } from './dengo.ts'
-import { MappedSchema, Schema, SchemaDefinition } from './schema.ts'
-import { parseId } from './utils.ts'
+import { parseObjectId } from './utils.ts'
+import { FindCursor } from 'https://deno.land/x/mongo@v0.32.0/src/collection/commands/find.ts'
+import { Document, Schema } from './types.ts'
 
-export function _model<T extends SchemaDefinition>(
-  collection: string,
-  schema: Schema<T>,
+/**
+ * Creates a new model instance for a MongoDB collection.
+ * @param collectionName The name of the MongoDB collection.
+ * @param schema The schema for the MongoDB collection.
+ * @returns A new instance of the `Model` class.
+ * @example
+ * const userSchema = dengo.schema({
+ *   name: str(),
+ *   email: str().email(),
+ *   age: coerce.num().min(18)
+ * });
+ * const User = dengo.model('users', userSchema);
+ */
+export function model<const T extends Schema>(
+  collectionName: string,
+  schema: T,
 ) {
-  return new Model<T>(collection, schema)
+  return new Model<T>(collectionName, schema)
 }
 
-class Model<T extends SchemaDefinition> {
+/**
+ * Represents a MongoDB collection model.
+ * @template T The schema type for the MongoDB collection.
+ */
+export class Model<T extends Schema> {
+  /**
+   * The MongoDB connection.
+   * @private @internal @readonly
+   */
   #connection = dengo.connection
-  collection: Collection<MappedSchema<T>>
-  updateQuery: Record<string, unknown> = {}
 
-  constructor(public collectionName: string, public schema: Schema<T>) {
-    this.collection = this.connection.db.collection(collectionName)
+  /*
+   * The MongoDB collection.
+   */
+  #collection: Collection<Document<T>>
+
+  /**
+   * The schema for the MongoDB collection.
+   * Includes the schema definition and options.
+   */
+  schema: T
+
+  /**
+   * Creates a new instance of the `Model` class.
+   * @param collectionName The name of the MongoDB collection.
+   * @param schema The schema for the MongoDB collection.
+   */
+  constructor(collectionName: string, schema: T) {
+    this.#collection = this.connection.db.collection(collectionName)
+    this.schema = schema
   }
 
-  // READ
+  /**
+   * Finds documents in the MongoDB collection.
+   * @param filter The filter to apply to the query.
+   * @param options The options to apply to the query.
+   * @param cb A callback function to handle each document returned by the query.
+   * @returns An array of documents that match the query.
+   */
   find(
-    filter?: Filter<T>,
+    filter?: Filter<Document<T>>,
     options?: FindOptions,
-    // cb?: (data?: InsertDocument<T>) => void,
+    cb?: (data: Document<T> & Record<string, unknown>) => void,
   ) {
     const iter = this.collection.find(filter, options)
 
-    // if (cb) {
-    //   await iter.forEach(cb)
-    // }
+    if (cb) {
+      return this.handleMany(iter, cb)
+    }
 
     return iter.toArray()
   }
 
-  async findOne(
-    filter?: Filter<MappedSchema<T>>,
+  /**
+   * Finds a single document in the MongoDB collection.
+   * @param filter The filter to apply to the query.
+   * @param options The options to apply to the query.
+   * @returns The first document that matches the query.
+   */
+  findOne(
+    filter?: Filter<Document<T>>,
     options?: FindOptions,
-    // cb?: (data?: InsertDocument<T>) => void,
   ) {
-    const data = await this.collection.findOne(filter, options)
-    // cb?.(data)
-    return data
+    return this.collection.findOne(filter, options)
   }
 
+  /**
+   * Finds a document in the MongoDB collection by its ID.
+   * @param id The ID of the document to find.
+   * @param options The options to apply to the query.
+   * @returns The document that matches the ID.
+   */
   findById(
     id: string | ObjectId,
     options?: FindOptions,
-    // cb?: (data?: InsertDocument<T>) => void,
   ) {
-    return this.findOne({ _id: parseId(id) }, options)
+    // @ts-expect-error: cast objectId do document
+    return this.findOne({ _id: parseObjectId(id) }, options)
   }
 
-  async aggregate() {}
+  /**
+   * The MongoDB collection's `aggregate` method.
+   */
+  get aggregate() {
+    return this.collection.aggregate
+  }
 
+  /**
+   * Populates a document's references.
+   */
   async populate() {}
 
-  // WRITE
-  async insertOne(doc: InsertDocument<T>, options?: InsertOptions) {
-    const id = await this.collection.insertOne(doc, options)
-    return id
+  /**
+   * Inserts a single document into the MongoDB collection.
+   * @param doc The document to insert.
+   * @param options The options to apply to the insert operation.
+   * @returns The result of the insert operation.
+   */
+  insertOne(
+    doc: InsertDocument<Document<T>>,
+    options?: InsertOptions,
+  ) {
+    this.schema.props.parse(doc)
+
+    if (this.schema.options?.timestamps) {
+      const createdAt = new Date()
+      doc.createdAt = createdAt
+      doc.updatedAt = createdAt
+    }
+
+    return this.collection.insertOne(doc, options)
   }
 
-  async insertMany() {}
+  /**
+   * Inserts multiple documents into the MongoDB collection.
+   * @param docs The documents to insert.
+   * @param options The options to apply to the insert operation.
+   * @returns The result of the insert operation.
+   */
+  insertMany(
+    docs: InsertDocument<Document<T>>[],
+    options?: InsertOptions,
+  ) {
+    docs.forEach((doc) => {
+      this.schema.props.parse(doc)
 
-  // UPDATE
-  async updateOne() {}
+      if (this.schema.options?.timestamps) {
+        const createdAt = new Date()
+        doc.createdAt = createdAt
+        doc.updatedAt = createdAt
+      }
+    })
 
-  async updateMany() {}
+    return this.collection.insertMany(docs, options)
+  }
 
-  async findByIdAndUpdate() {}
+  /**
+   * Updates multiple documents in the MongoDB collection.
+   * @param filter The filter to apply to the query.
+   * @param update The update to apply to the documents.
+   * @param options The options to apply to the update operation.
+   * @returns The result of the update operation.
+   */
+  updateOne(
+    filter: Filter<Document<T>>,
+    update: UpdateFilter<Document<T>>,
+    options?: UpdateOptions,
+  ) {
+    this.schema.props.optional().parse(update)
 
-  // REPLACE
+    if (this.schema.options?.timestamps) {
+      update = {
+        ...update,
+        $set: {
+          ...update.$set,
+          updatedAt: new Date(),
+        },
+      }
+    }
+
+    return this.collection.updateOne(filter, update, options)
+  }
+
+  /**
+   * Updates multiple documents in the MongoDB collection.
+   * @param filter The filter to apply to the query.
+   * @param update The update to apply to the documents.
+   * @param options The options to apply to the update operation.
+   * @returns The result of the update operation.
+   */
+  updateMany(
+    filter: Filter<Document<T>>,
+    update: UpdateFilter<Document<T>>,
+    options?: UpdateOptions,
+  ) {
+    this.schema.props.optional().parse(update)
+
+    if (this.schema.options?.timestamps) {
+      update = {
+        ...update,
+        $set: {
+          ...update.$set,
+          updatedAt: new Date(),
+        },
+      }
+    }
+
+    return this.collection.updateMany(filter, update, options)
+  }
+
+  /**
+   * Finds a document in the MongoDB collection by its ID and updates it.
+   * @param id The ID of the document to update.
+   * @param update The update to apply to the document.
+   * @param options The options to apply to the update operation.
+   * @returns The result of the update operation.
+   */
+  findByIdAndUpdate(
+    id: string | ObjectId,
+    update: UpdateFilter<Document<T>>,
+    options?: UpdateOptions,
+  ) {
+    this.schema.props.optional().parse(update)
+    // @ts-expect-error: cast objectId do document
+    return this.updateOne({ _id: parseObjectId(id) }, update, options)
+  }
+
+  /**
+   * Replaces a single document in the MongoDB collection.
+   * @param filter The filter to apply to the query.
+   * @param doc The document to replace the matched document with.
+   * @param options The options to apply to the replace operation.
+   * @returns The result of the replace operation.
+   */
   async replaceOne() {}
 
+  /**
+   * Finds a document in the MongoDB collection by its ID and replaces it.
+   * @param id The ID of the document to replace.
+   * @param doc The document to replace the matched document with.
+   * @param options The options to apply to the replace operation.
+   * @returns The result of the replace operation.
+   */
   async findByIdAndReplace() {}
 
-  // DELETE
-  async deleteOne() {}
+  /**
+   * Deletes a single document from the MongoDB collection.
+   * @param filter The filter to apply to the query.
+   * @param options The options to apply to the delete operation.
+   * @returns The result of the delete operation.
+   */
+  deleteOne(
+    filter: Filter<Document<T>>,
+    options?: DeleteOptions,
+  ) {
+    return this.collection.deleteOne(filter, options)
+  }
 
-  async deleteMany() {}
+  /**
+   * Deletes multiple documents from the MongoDB collection.
+   * @param filter The filter to apply to the query.
+   * @param options The options to apply to the delete operation.
+   * @returns The result of the delete operation.
+   */
+  deleteMany(
+    filter: Filter<Document<T>>,
+    options?: DeleteOptions,
+  ) {
+    return this.collection.deleteMany(filter, options)
+  }
 
-  async findByIdAndDelete() {}
+  /**
+   * Finds a document in the MongoDB collection by its ID and deletes it.
+   * @param id The ID of the document to delete.
+   * @param options The options to apply to the delete operation.
+   * @returns The result of the delete operation.
+   */
+  findByIdAndDelete(
+    id: string | ObjectId,
+    options?: DeleteOptions,
+  ) {
+    // @ts-expect-error: cast objectId do document
+    return this.deleteOne({ _id: parseObjectId(id) }, options)
+  }
 
-  async dropCollection() {}
+  /**
+   * Drops the MongoDB collection.
+   * @returns The result of the drop operation.
+   */
+  dropCollection() {
+    return this.collection.drop()
+  }
 
-  protected get connection() {
+  /**
+   * Handles the result of a MongoDB query.
+   * @param iter The MongoDB query iterator.
+   * @param cb A callback function to handle each document returned by the query.
+   * @returns An array of documents that match the query.
+   */
+  private async handleMany(
+    iter: FindCursor<Document<T>>,
+    cb: (doc: Document<T>) => void,
+  ) {
+    const result: Document<T>[] = []
+    await iter.forEach((doc) => {
+      cb(doc)
+      result.push(doc)
+    })
+    return result
+  }
+
+  get connection() {
     if (!this.#connection) {
       throw new Error('No connection establised before query.')
     }
     return this.#connection
+  }
+
+  get collection() {
+    if (!this.connection) {
+      throw new Error('No connection establised before query.')
+    }
+    return this.#collection
   }
 }
