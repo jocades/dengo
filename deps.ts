@@ -8,7 +8,7 @@ export {
   z,
   ZodObject,
   type ZodTypeAny,
-} from 'zod/mod.ts'
+} from 'https://deno.land/x/zod@v3.22.2/mod.ts'
 
 export {
   Collection,
@@ -23,6 +23,6 @@ export {
   ObjectId,
   type UpdateFilter,
   type UpdateOptions,
-} from 'mongo/mod.ts'
+} from 'https://deno.land/x/mongo@v0.32.0/mod.ts'
 
-export { FindCursor } from 'mongo/src/collection/commands/find.ts'
+export { FindCursor } from 'https://deno.land/x/mongo@v0.32.0/src/collection/commands/find.ts'

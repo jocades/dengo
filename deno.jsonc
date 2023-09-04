@@ -4,9 +4,7 @@
   },
   "imports": {
     "deps": "./deps.ts",
-    "std/": "https://deno.land/std@0.200.0/",
-    "mongo/": "https://deno.land/x/mongo@v0.32.0/",
-    "zod/": "https://deno.land/x/zod@v3.22.2/"
+    "std/": "https://deno.land/std@0.200.0/"
   },
   "test": {
     "include": ["./test/"]
