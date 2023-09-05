@@ -15,11 +15,27 @@ export const location = () =>
   })
 // other BSON types?
 
-export const coerce = {
+const coerce = {
   str: zCoerce.string,
   num: zCoerce.number,
   bool: zCoerce.boolean,
   date: zCoerce.date,
 }
+// create a custom instance of zod called t and map string to str, etc.
 
-export { any, custom, literal, object, unknown, z }
+export const t = {
+  any,
+  custom,
+  literal,
+  object,
+  unknown,
+  str,
+  num,
+  bool,
+  date,
+  enu,
+  list,
+  objectId,
+  location,
+  coerce,
+}

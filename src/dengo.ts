@@ -4,21 +4,21 @@ import { model } from './model.ts'
 import { schema } from './schema.ts'
 
 class Dengo {
-  connection: Connection | null = null
+  conn: Connection | null = null
   model = model
   schema = schema
 
   connect(options: ConnectOptions | string) {
-    this.connection = new Connection(options)
-    return this.connection.connect()
+    this.conn = new Connection(options)
+    return this.conn.connect()
   }
 
   disconnect() {
-    if (!this.connection) {
+    if (!this.conn) {
       throw new Error('No connection to disconnect.')
     }
-    this.connection.disconnect()
-    this.connection = null
+    this.conn.disconnect()
+    this.conn = null
   }
 }
 

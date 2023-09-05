@@ -2,7 +2,7 @@ import {
   Collection,
   DeleteOptions,
   Filter,
-  FindOptions,
+  // FindOptions,
   InsertDocument,
   InsertOptions,
   ObjectId,
@@ -12,7 +12,8 @@ import {
 import { dengo } from './dengo.ts'
 import { parseObjectId } from './utils.ts'
 import { FindCursor } from 'deps'
-import { Document, Schema } from './types.ts'
+import { Document, FindOptions, Schema } from './types.ts'
+import { FindQuery } from './commands/find.ts'
 
 /**
  * Creates a new model instance for a MongoDB collection.
@@ -43,7 +44,7 @@ export class Model<T extends Schema> {
    * The MongoDB connection.
    * @private @internal @readonly
    */
-  #connection = dengo.connection
+  #conn = dengo.conn
 
   /*
    * The MongoDB collection.
@@ -62,7 +63,7 @@ export class Model<T extends Schema> {
    * @param schema The schema for the MongoDB collection.
    */
   constructor(collectionName: string, schema: T) {
-    this.#collection = this.connection.db.collection(collectionName)
+    this.#collection = this.conn.db.collection(collectionName)
     this.schema = schema
   }
 
@@ -75,16 +76,17 @@ export class Model<T extends Schema> {
    */
   find(
     filter?: Filter<Document<T>>,
-    options?: FindOptions,
-    cb?: (data: Document<T> & Record<string, unknown>) => void,
+    options?: FindOptions<T>,
+    // cb?: (data: Document<T> & Record<string, unknown>) => void,
   ) {
-    const iter = this.collection.find(filter, options)
-
-    if (cb) {
-      return this.handleMany(iter, cb)
-    }
-
-    return iter.toArray()
+    return new FindQuery<T>(this.#collection, filter, options)
+    // const iter = this.collection.find(filter, options)
+    //
+    // if (cb) {
+    //   return this.handleMany(iter, cb)
+    // }
+    //
+    // return iter.toArray()
   }
 
   /**
@@ -95,7 +97,7 @@ export class Model<T extends Schema> {
    */
   findOne(
     filter?: Filter<Document<T>>,
-    options?: FindOptions,
+    options?: FindOptions<T>,
   ) {
     return this.collection.findOne(filter, options)
   }
@@ -128,46 +130,49 @@ export class Model<T extends Schema> {
 
   /**
    * Inserts a single document into the MongoDB collection.
+   * Values are parsed and timestamps are added to the document.
    * @param doc The document to insert.
    * @param options The options to apply to the insert operation.
-   * @returns The result of the insert operation.
+   * @returns The parsed document with its inserted ID.
    */
-  insertOne(
-    doc: InsertDocument<Document<T>>,
+  async insertOne(
+    doc: Document<T>,
     options?: InsertOptions,
   ) {
-    this.schema.props.parse(doc)
+    const parsedDoc = this.schema.props.parse(doc)
+    this.handleInsertTimestamps(parsedDoc)
 
-    if (this.schema.options?.timestamps) {
-      const createdAt = new Date()
-      doc.createdAt = createdAt
-      doc.updatedAt = createdAt
-    }
+    const _id = await this.collection.insertOne(
+      parsedDoc as InsertDocument<Document<T>>,
+      options,
+    )
 
-    return this.collection.insertOne(doc, options)
+    return { ...parsedDoc, _id } as Document<T> & { _id: ObjectId }
   }
 
   /**
    * Inserts multiple documents into the MongoDB collection.
+   * Values are parsed and timestamps are added to each document.
    * @param docs The documents to insert.
    * @param options The options to apply to the insert operation.
-   * @returns The result of the insert operation.
+   * @returns The parsed documents with their inserted IDs.
    */
-  insertMany(
-    docs: InsertDocument<Document<T>>[],
+  async insertMany(
+    docs: Document<T>[],
     options?: InsertOptions,
   ) {
-    docs.forEach((doc) => {
-      this.schema.props.parse(doc)
-
-      if (this.schema.options?.timestamps) {
-        const createdAt = new Date()
-        doc.createdAt = createdAt
-        doc.updatedAt = createdAt
-      }
+    const parsedDocs = docs.map((doc) => {
+      const parsedDoc = this.schema.props.parse(doc)
+      this.handleInsertTimestamps(parsedDoc)
+      return parsedDoc
     })
 
-    return this.collection.insertMany(docs, options)
+    const { insertedIds } = await this.collection.insertMany(
+      parsedDocs as InsertDocument<Document<T>>[],
+      options,
+    )
+
+    return parsedDocs.map((doc, i) => ({ ...doc, _id: insertedIds[i] }))
   }
 
   /**
@@ -177,24 +182,24 @@ export class Model<T extends Schema> {
    * @param options The options to apply to the update operation.
    * @returns The result of the update operation.
    */
-  updateOne(
+  async updateOne(
     filter: Filter<Document<T>>,
     update: UpdateFilter<Document<T>>,
     options?: UpdateOptions,
   ) {
-    this.schema.props.optional().parse(update)
+    const parsedDoc = this.schema.props
+      .optional()
+      .parse(update.$set) as Partial<Document<T>>
 
-    if (this.schema.options?.timestamps) {
-      update = {
-        ...update,
-        $set: {
-          ...update.$set,
-          updatedAt: new Date(),
-        },
-      }
-    }
+    this.handleUpdateTimestamps(parsedDoc)
 
-    return this.collection.updateOne(filter, update, options)
+    const { upsertedId } = await this.collection.updateOne(
+      filter,
+      update,
+      options,
+    )
+
+    return { ...update, _id: upsertedId }
   }
 
   /**
@@ -209,19 +214,13 @@ export class Model<T extends Schema> {
     update: UpdateFilter<Document<T>>,
     options?: UpdateOptions,
   ) {
-    this.schema.props.optional().parse(update)
+    const parsedDoc = this.schema.props
+      .optional()
+      .parse(update.$set) as Partial<Document<T>>
 
-    if (this.schema.options?.timestamps) {
-      update = {
-        ...update,
-        $set: {
-          ...update.$set,
-          updatedAt: new Date(),
-        },
-      }
-    }
+    this.handleUpdateTimestamps(parsedDoc)
 
-    return this.collection.updateMany(filter, update, options)
+    return this.collection.updateMany(filter, parsedDoc, options)
   }
 
   /**
@@ -313,7 +312,7 @@ export class Model<T extends Schema> {
    * @param cb A callback function to handle each document returned by the query.
    * @returns An array of documents that match the query.
    */
-  private async handleMany(
+  async handleMany(
     iter: FindCursor<Document<T>>,
     cb: (doc: Document<T>) => void,
   ) {
@@ -325,15 +324,44 @@ export class Model<T extends Schema> {
     return result
   }
 
-  get connection() {
-    if (!this.#connection) {
+  /**
+   * Adds timestamps to a document before inserting it into the MongoDB collection.
+   * @param doc The document to insert into the MongoDB collection.
+   */
+  protected handleInsertTimestamps(
+    doc: Record<string, unknown>,
+  ) {
+    if (this.schema.options.timestamps) {
+      const createdAt = new Date()
+      doc.createdAt = createdAt
+      doc.updatedAt = createdAt
+    }
+  }
+
+  /**
+   * Adds timestamps to a document before updating it in the MongoDB collection.
+   * @param update The update to apply to the document.
+   */
+  protected handleUpdateTimestamps(
+    update: UpdateFilter<Record<string, unknown>>,
+  ) {
+    if (this.schema.options.timestamps) {
+      update.$set = {
+        ...update.$set,
+        updatedAt: new Date(),
+      }
+    }
+  }
+
+  get conn() {
+    if (!this.#conn) {
       throw new Error('No connection establised before query.')
     }
-    return this.#connection
+    return this.#conn
   }
 
   get collection() {
-    if (!this.connection) {
+    if (!this.conn) {
       throw new Error('No connection establised before query.')
     }
     return this.#collection

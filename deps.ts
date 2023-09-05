@@ -1,5 +1,6 @@
 export {
   any,
+  type AnyZodObject,
   coerce as zCoerce,
   custom,
   literal,
